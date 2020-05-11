@@ -8,7 +8,6 @@
 
 import SwiftUI
 
-let targetSize = CGSize(width: 1080, height: 1920)
 
 extension Int {
     var formattedByteCount: String {
@@ -23,30 +22,15 @@ extension UIImage {
 }
 
 struct ContentView: View {
-    @State var inputImage: UIImage?
+    @ObservedObject var model = Model()
+
+    var inputImage: UIImage? { model.inputImage }
     @State var jpegQuality: CGFloat = 0.85
     @State var qualitySliderValue: CGFloat = 0.85
 
-    var outputImage: UIImage? {
-        // Scale the image to fit inside of the target size.
-        guard let input = inputImage else { return nil }
+    var targetSize: CGSize { model.targetSize }
 
-        let scaleHeight = targetSize.height / input.size.height
-        let scaleWidth = targetSize.width / input.size.width
-
-        // Scale enough that both height and width fit
-        let scale = min(scaleHeight, scaleWidth)
-
-        if scale >= 1 { return input }   // Don't scale up
-
-        let size = CGSize(width: input.size.width * scale, height: input.size.height * scale)
-
-        // Draw the pixels at scale 1, not based on the current screen
-        UIGraphicsBeginImageContextWithOptions(size, true, 1)
-        defer { UIGraphicsEndImageContext() }
-        input.draw(in: CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height))
-        return UIGraphicsGetImageFromCurrentImageContext()
-    }
+    var outputImage: UIImage? { model.outputImage }
 
     @State var showImagePicker: Bool = false
 
@@ -134,7 +118,6 @@ struct ContentView: View {
                     Image(systemName: "arrow.right")
 
                     VStack{
-
                         Group {
                             if outputImage != nil {
                                 Image(uiImage: outputImage!)
@@ -159,11 +142,52 @@ struct ContentView: View {
                 }
             }
             if (showImagePicker) {
-                ImagePickerView(isShown: $showImagePicker, image: $inputImage)
+                ImagePickerView(isShown: $showImagePicker, image: $model.inputImage)
             }
         }
     }
+}
 
+
+import Combine
+
+
+class Model: ObservableObject {
+    @Published var inputImage: UIImage?
+    @Published var outputImage: UIImage?
+
+    let targetSize = CGSize(width: 1080, height: 1920)
+
+    private var observers: Set<AnyCancellable> = []
+
+    init() {
+        $inputImage
+            .map { [targetSize] in Model.resize(image: $0, to: targetSize) }
+            .assign(to: \.outputImage, on: self)
+            .store(in: &observers)
+    }
+
+    static func resize(image: UIImage?, to targetSize: CGSize) -> UIImage? {
+        // Scale the image to fit inside of the target size.
+        guard let input = image else { return nil }
+
+        let scaleHeight = targetSize.height / input.size.height
+        let scaleWidth = targetSize.width / input.size.width
+
+        // Scale enough that both height and width fit
+        let scale = min(scaleHeight, scaleWidth)
+
+        if scale >= 1 { return input }   // Don't scale up
+
+        let size = CGSize(width: input.size.width * scale, height: input.size.height * scale)
+
+        print("Resize")
+        // Draw the pixels at scale 1, not based on the current screen
+        UIGraphicsBeginImageContextWithOptions(size, true, 1)
+        defer { UIGraphicsEndImageContext() }
+        input.draw(in: CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height))
+        return UIGraphicsGetImageFromCurrentImageContext()
+    }
 }
 
 struct ContentView_Previews: PreviewProvider {
