@@ -25,8 +25,9 @@ struct ContentView: View {
     @ObservedObject var model = Model()
 
     var inputImage: UIImage? { model.inputImage }
-    @State var jpegQuality: CGFloat = 0.85
+
     @State var qualitySliderValue: CGFloat = 0.85
+    var jpegQuality: CGFloat { model.jpegQuality }
 
     var targetSize: CGSize { model.targetSize }
 
@@ -80,11 +81,11 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 0) {
                     Text("Quality: \(qualitySliderValue, specifier: "%.2f")")
                     Slider(value: $qualitySliderValue,
-                           in: (0.6)...(1.0),
+                           in: (0.1)...(1.0),
                            step: 0.05,
                            onEditingChanged: { editing in
                             if !editing {
-                                self.jpegQuality = self.qualitySliderValue
+                                self.model.jpegQuality = self.qualitySliderValue
                             }
                     })
                 }
@@ -152,42 +153,51 @@ struct ContentView: View {
 import Combine
 
 
+private func resize(image: UIImage?, to targetSize: CGSize) -> UIImage? {
+    // Scale the image to fit inside of the target size.
+    guard let input = image else { return nil }
+
+    let scaleHeight = targetSize.height / input.size.height
+    let scaleWidth = targetSize.width / input.size.width
+
+    // Scale enough that both height and width fit
+    let scale = min(scaleHeight, scaleWidth)
+
+    if scale >= 1 { return input }   // Don't scale up
+
+    let size = CGSize(width: input.size.width * scale, height: input.size.height * scale)
+
+    // Draw the pixels at scale 1, not based on the current screen
+    UIGraphicsBeginImageContextWithOptions(size, true, 1)
+    defer { UIGraphicsEndImageContext() }
+    input.draw(in: CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height))
+    return UIGraphicsGetImageFromCurrentImageContext()
+}
+
+private func compress(image: UIImage?, quality: CGFloat) -> UIImage? {
+    guard let input = image,
+        let data = input.jpegData(compressionQuality: quality)
+        else { return nil }
+    return UIImage(data: data)
+}
+
 class Model: ObservableObject {
     @Published var inputImage: UIImage?
     @Published var outputImage: UIImage?
+    @Published var jpegQuality: CGFloat = 0.85
 
     let targetSize = CGSize(width: 1080, height: 1920)
 
     private var observers: Set<AnyCancellable> = []
 
     init() {
-        $inputImage
-            .map { [targetSize] in Model.resize(image: $0, to: targetSize) }
+        $inputImage.combineLatest($jpegQuality)
+            .map { [targetSize] (image, quality) in compress(image: resize(image: image, to: targetSize),
+                                                             quality: quality) }
             .assign(to: \.outputImage, on: self)
             .store(in: &observers)
     }
 
-    static func resize(image: UIImage?, to targetSize: CGSize) -> UIImage? {
-        // Scale the image to fit inside of the target size.
-        guard let input = image else { return nil }
-
-        let scaleHeight = targetSize.height / input.size.height
-        let scaleWidth = targetSize.width / input.size.width
-
-        // Scale enough that both height and width fit
-        let scale = min(scaleHeight, scaleWidth)
-
-        if scale >= 1 { return input }   // Don't scale up
-
-        let size = CGSize(width: input.size.width * scale, height: input.size.height * scale)
-
-        print("Resize")
-        // Draw the pixels at scale 1, not based on the current screen
-        UIGraphicsBeginImageContextWithOptions(size, true, 1)
-        defer { UIGraphicsEndImageContext() }
-        input.draw(in: CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height))
-        return UIGraphicsGetImageFromCurrentImageContext()
-    }
 }
 
 struct ContentView_Previews: PreviewProvider {
