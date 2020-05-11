@@ -19,6 +19,15 @@ extension UIImage {
     var rawByteCount: Int {
         (cgImage?.dataProvider?.data as Data?)?.count ?? 0
     }
+
+    func jpegByteCount(compressionQuality: CGFloat) -> Int {
+        jpegData(compressionQuality: compressionQuality)?.count ?? 0
+    }
+
+    func jpegByteCountString(compressionQuality: CGFloat) -> String {
+        jpegByteCount(compressionQuality: compressionQuality).formattedByteCount
+    }
+
 }
 
 struct ContentView: View {
@@ -37,18 +46,18 @@ struct ContentView: View {
 
     @State var showOutputFullScreen: Bool = false
 
-    func jpegByteCount(_ image: UIImage) -> Int {
-        image.jpegData(compressionQuality: jpegQuality)?.count ?? 0
+    func jpegByteCount(_ image: UIImage, quality: CGFloat) -> Int {
+        image.jpegData(compressionQuality: quality)?.count ?? 0
     }
 
-    func jpegByteCountString(_ image: UIImage) -> String {
-        jpegByteCount(image).formattedByteCount
+    func jpegByteCountString(_ image: UIImage, quality: CGFloat) -> String {
+        jpegByteCount(image, quality: quality).formattedByteCount
     }
 
     var inputCaption: some View {
         if let image = inputImage {
             let size = image.size
-            return Text("\(size.width, specifier: "%.0f")⨯\(size.height, specifier: "%.0f") - \(jpegByteCountString(image)) (\(image.rawByteCount.formattedByteCount))")
+            return Text("\(size.width, specifier: "%.0f")⨯\(size.height, specifier: "%.0f") - \(image.jpegByteCountString(compressionQuality: 1.0)) (\(image.rawByteCount.formattedByteCount))")
         } else {
             return Text("---")
         }
@@ -56,8 +65,8 @@ struct ContentView: View {
 
     var outputCaption: some View {
         if let input = inputImage, let output = outputImage {
-            let inputByteCount = jpegByteCount(input)
-            let outputByteCount = jpegByteCount(output)
+            let inputByteCount = input.jpegByteCount(compressionQuality: 1.0)
+            let outputByteCount = output.jpegByteCount(compressionQuality: jpegQuality)
             let size = output.size
             let ratio: String
             if inputByteCount == 0 {
@@ -70,7 +79,7 @@ struct ContentView: View {
                     Double(outputByteCount)/Double(inputByteCount)))!
             }
 
-            return Text("\(size.width, specifier: "%.0f")⨯\(size.height, specifier: "%.0f") - \(jpegByteCountString(output)) (\(ratio))")
+            return Text("\(size.width, specifier: "%.0f")⨯\(size.height, specifier: "%.0f") - \(output.jpegByteCountString(compressionQuality: jpegQuality)) (\(ratio))")
         }
         else {
             return Text("---")
@@ -105,7 +114,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 0) {
             Text("Quality: \(qualitySliderValue, specifier: "%.2f")")
             Slider(value: $qualitySliderValue,
-                   in: (0.1)...(1.0),
+                   in: (0.0)...(1.0),
                    step: 0.05,
                    onEditingChanged: { editing in
                     if !editing {
@@ -215,7 +224,6 @@ class Model: ObservableObject {
             .assign(to: \.outputImage, on: self)
             .store(in: &observers)
     }
-
 }
 
 struct ContentView_Previews: PreviewProvider {
