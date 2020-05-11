@@ -93,9 +93,16 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             VStack {
-                VStack(alignment: .leading) {
-                    Text("Quality: \(jpegQuality, specifier: "%.2f")")
-                    Slider(value: $qualitySliderValue, in: (0.6)...(1.0))
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("Quality: \(qualitySliderValue, specifier: "%.2f")")
+                    Slider(value: $qualitySliderValue,
+                           in: (0.6)...(1.0),
+                           step: 0.05,
+                           onEditingChanged: { editing in
+                            if !editing {
+                                self.jpegQuality = self.qualitySliderValue
+                            }
+                    })
                 }
                 .padding()
 
