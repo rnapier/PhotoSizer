@@ -9,6 +9,37 @@
 import SwiftUI
 import Combine
 
+/*
+ This is the only really important method in this file
+ */
+extension UIImage {
+    func resize(to targetSize: CGSize) -> UIImage {
+        // Scale the image to fit inside of the target size.
+        let scaleHeight = targetSize.height / size.height
+        let scaleWidth = targetSize.width / size.width
+
+        // Scale enough that both height and width fit
+        let scale = min(scaleHeight, scaleWidth)
+
+        if scale >= 1 { return self }   // Don't scale up
+
+        let newSize = CGSize(width: size.width * scale, height: size.height * scale)
+
+        // Draw the pixels at scale 1, not based on the current screen
+        UIGraphicsBeginImageContextWithOptions(newSize, true, 1)
+        defer { UIGraphicsEndImageContext() }
+        draw(in: CGRect(x: 0.0, y: 0.0, width: newSize.width, height: newSize.height))
+        return UIGraphicsGetImageFromCurrentImageContext()! // If this returns nil, it is a programming error, and should crash.
+    }
+}
+
+extension UIImage {
+    func jpegCompress(quality: CGFloat) -> UIImage? {
+        guard let data = jpegData(compressionQuality: quality) else { return nil }
+        return UIImage(data: data)
+    }
+}
+
 extension Int {
     var formattedByteCount: String {
         ByteCountFormatter().string(fromByteCount:Int64(self))
@@ -27,7 +58,6 @@ extension UIImage {
     func jpegByteCountString(compressionQuality: CGFloat) -> String {
         jpegByteCount(compressionQuality: compressionQuality).formattedByteCount
     }
-
 }
 
 struct ContentView: View {
@@ -180,34 +210,6 @@ struct ContentView: View {
     }
 }
 
-private func resize(image: UIImage?, to targetSize: CGSize) -> UIImage? {
-    // Scale the image to fit inside of the target size.
-    guard let input = image else { return nil }
-
-    let scaleHeight = targetSize.height / input.size.height
-    let scaleWidth = targetSize.width / input.size.width
-
-    // Scale enough that both height and width fit
-    let scale = min(scaleHeight, scaleWidth)
-
-    if scale >= 1 { return input }   // Don't scale up
-
-    let size = CGSize(width: input.size.width * scale, height: input.size.height * scale)
-
-    // Draw the pixels at scale 1, not based on the current screen
-    UIGraphicsBeginImageContextWithOptions(size, true, 1)
-    defer { UIGraphicsEndImageContext() }
-    input.draw(in: CGRect(x: 0.0, y: 0.0, width: size.width, height: size.height))
-    return UIGraphicsGetImageFromCurrentImageContext()
-}
-
-private func compress(image: UIImage?, quality: CGFloat) -> UIImage? {
-    guard let input = image,
-        let data = input.jpegData(compressionQuality: quality)
-        else { return nil }
-    return UIImage(data: data)
-}
-
 class Model: ObservableObject {
     @Published var inputImage: UIImage?
     @Published var outputImage: UIImage?
@@ -219,8 +221,7 @@ class Model: ObservableObject {
 
     init() {
         $inputImage.combineLatest($jpegQuality)
-            .map { [targetSize] (image, quality) in compress(image: resize(image: image, to: targetSize),
-                                                             quality: quality) }
+            .map { [targetSize] (image, quality) in image?.resize(to: targetSize).jpegCompress(quality: quality)}
             .assign(to: \.outputImage, on: self)
             .store(in: &observers)
     }
