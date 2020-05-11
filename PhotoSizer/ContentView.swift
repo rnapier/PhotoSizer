@@ -7,7 +7,7 @@
 //
 
 import SwiftUI
-
+import Combine
 
 extension Int {
     var formattedByteCount: String {
@@ -34,6 +34,8 @@ struct ContentView: View {
     var outputImage: UIImage? { model.outputImage }
 
     @State var showImagePicker: Bool = false
+
+    @State var showOutputFullScreen: Bool = false
 
     func jpegByteCount(_ image: UIImage) -> Int {
         image.jpegData(compressionQuality: jpegQuality)?.count ?? 0
@@ -75,21 +77,49 @@ struct ContentView: View {
         }
     }
 
+    var outputView: some View {
+        Group {
+            if outputImage != nil {
+                Image(uiImage: outputImage!)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .onTapGesture {
+                        self.showOutputFullScreen.toggle()
+                }
+            } else {
+                VStack {
+                    Spacer()
+                    Text("Output Image")
+                    Spacer()
+                }
+                .frame(maxWidth: .infinity)
+            }
+        }
+        .aspectRatio(targetSize, contentMode: .fit)
+        .border(Color.black).padding(.horizontal)
+        .frame(maxWidth: .infinity)
+    }
+
+    var qualitySliderView: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Quality: \(qualitySliderValue, specifier: "%.2f")")
+            Slider(value: $qualitySliderValue,
+                   in: (0.1)...(1.0),
+                   step: 0.05,
+                   onEditingChanged: { editing in
+                    if !editing {
+                        self.model.jpegQuality = self.qualitySliderValue
+                    }
+            })
+        }
+        .padding()
+    }
+
     var body: some View {
         ZStack {
             VStack {
-                VStack(alignment: .leading, spacing: 0) {
-                    Text("Quality: \(qualitySliderValue, specifier: "%.2f")")
-                    Slider(value: $qualitySliderValue,
-                           in: (0.1)...(1.0),
-                           step: 0.05,
-                           onEditingChanged: { editing in
-                            if !editing {
-                                self.model.jpegQuality = self.qualitySliderValue
-                            }
-                    })
-                }
-                .padding()
+                qualitySliderView
 
                 HStack {
                     VStack{
@@ -119,24 +149,7 @@ struct ContentView: View {
                     Image(systemName: "arrow.right")
 
                     VStack{
-                        Group {
-                            if outputImage != nil {
-                                Image(uiImage: outputImage!)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            } else {
-                                VStack {
-                                    Spacer()
-                                    Text("Output Image")
-                                    Spacer()
-                                }
-                                .frame(maxWidth: .infinity)
-                            }
-                        }
-                        .aspectRatio(targetSize, contentMode: .fit)
-                        .border(Color.black).padding(.horizontal)
-                        .frame(maxWidth: .infinity)
+                        outputView
 
                         outputCaption
                     }
@@ -145,13 +158,18 @@ struct ContentView: View {
             if (showImagePicker) {
                 ImagePickerView(isShown: $showImagePicker, image: $model.inputImage)
             }
+            if (showOutputFullScreen) {
+                ZStack {
+                    Color.white
+                    VStack {
+                        qualitySliderView
+                        outputView
+                    }
+                }
+            }
         }
     }
 }
-
-
-import Combine
-
 
 private func resize(image: UIImage?, to targetSize: CGSize) -> UIImage? {
     // Scale the image to fit inside of the target size.
