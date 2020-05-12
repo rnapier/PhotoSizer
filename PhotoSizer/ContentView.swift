@@ -139,9 +139,6 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity)
             }
         }
-        .aspectRatio(targetSize, contentMode: .fit)
-        .border(Color.black).padding(.horizontal)
-        .frame(maxWidth: .infinity)
     }
 
     var qualitySliderView: some View {
@@ -224,6 +221,11 @@ struct ContentView: View {
 
                     VStack{
                         outputView
+                            .aspectRatio(targetSize, contentMode: .fit)
+                            .border(Color.black)
+                            .padding(.horizontal)
+                            .frame(maxWidth: .infinity)
+
 
                         outputCaption
                     }
@@ -235,11 +237,17 @@ struct ContentView: View {
             if (showOutputFullScreen) {
                 ZStack {
                     Color.white
+                    outputView
+                        .aspectRatio(targetSize, contentMode: .fill)
                     VStack {
                         qualitySliderView
-                        outputView
+                        Spacer()
                     }
+                    .padding([.vertical, .leading])
+                    .padding(.trailing, 64)
                 }
+                .edgesIgnoringSafeArea(.all)
+
             }
         }
     }
