@@ -14,6 +14,7 @@ import Combine
  */
 extension UIImage {
     func resize(to targetSize: CGSize) -> UIImage {
+        print("")
         // Scale the image to fit inside of the target size.
         let scaleHeight = targetSize.height / size.height
         let scaleWidth = targetSize.width / size.width
@@ -75,6 +76,9 @@ struct ContentView: View {
     @State var showImagePicker: Bool = false
 
     @State var showOutputFullScreen: Bool = false
+
+    @State var imageWidth = "1080"
+    @State var imageHeight = "1920"
 
     func jpegByteCount(_ image: UIImage, quality: CGFloat) -> Int {
         image.jpegData(compressionQuality: quality)?.count ?? 0
@@ -158,6 +162,37 @@ struct ContentView: View {
     var body: some View {
         ZStack {
             VStack {
+                HStack {
+                    Text("w")
+                    TextField("1080", text: $imageWidth)
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                    Text("h")
+                    TextField("1920", text: $imageHeight)
+                        .keyboardType(.numberPad)
+                        .textFieldStyle(RoundedBorderTextFieldStyle())
+
+                    Button(action: {
+                        var size = self.model.targetSize
+                        if let newHeight = Int(self.imageHeight) {
+                            size.height = CGFloat(newHeight)
+                        }
+                        if let newWidth = Int(self.imageWidth) {
+                            size.width = CGFloat(newWidth)
+                        }
+                        self.model.targetSize = size
+
+                        // Dismiss keyboard
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder),
+                                                        to: nil, from: nil, for: nil)
+                    }) {
+                        Image(systemName: "arrow.clockwise")
+                    }
+
+                }.padding()
+
+
                 qualitySliderView
 
                 HStack {
@@ -215,13 +250,14 @@ class Model: ObservableObject {
     @Published var outputImage: UIImage?
     @Published var jpegQuality: CGFloat = 0.85
 
-    let targetSize = CGSize(width: 1080, height: 1920)
+    @Published var targetSize = CGSize(width: 1080, height: 1920)
 
     private var observers: Set<AnyCancellable> = []
 
     init() {
-        $inputImage.combineLatest($jpegQuality)
-            .map { [targetSize] (image, quality) in image?.resize(to: targetSize).jpegCompress(quality: quality)}
+        $inputImage.combineLatest($jpegQuality, $targetSize)
+            .map { (image, quality, size) in
+                image?.resize(to: size).jpegCompress(quality: quality) }
             .assign(to: \.outputImage, on: self)
             .store(in: &observers)
     }
