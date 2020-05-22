@@ -14,7 +14,6 @@ import Combine
  */
 extension UIImage {
     func resize(to targetSize: CGSize) -> UIImage {
-        print("")
         // Scale the image to fit inside of the target size.
         let scaleHeight = targetSize.height / size.height
         let scaleWidth = targetSize.width / size.width
